@@ -1,0 +1,1358 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Planificateur de Voyage Interactif : Ouest Américain</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Desert Dawn -->
+    <!-- Application Structure Plan: The SPA is designed as an interactive dashboard. The primary component is a detailed, filterable, and selectable itinerary table. Users can now select individual accommodation, meal, and activity options via clickable buttons. The 'Ville / Lieu' cell is clickable, linking to the primary source for that day. The 'Ville / Lieu' cells for the first and last day are explicitly marked as "(Arrivée)" and "(Départ)" respectively, while retaining their link functionality. Each suggested accommodation, meal, and activity button includes a clickable "Lien" text link if a relevant source link is found within the day's sourceLinks. New input fields allow the user to dynamically adjust the number of people, the arrival date, and the departure date. The "Zone de voyage" input field is now editable, allowing the user to specify the geographical area for conceptual search criteria. The "Contexte" textarea remains. The "Restriction" section now features a button to toggle a multi-column dropdown. The text area for "Restriction" has been removed, and instead, inside each column of the dropdown (Impossible, Supportable, Acceptable), a new dynamic text input field is added between the column title and the list of clickable buttons, allowing users to add custom restrictions which appear as new clickable buttons. "Persona" and "Prompt" are now implemented as dropdowns, each with a display input and a toggle button revealing a textarea. The "Prompt EX" section has been removed. A "Refresh Table" button is added at the top to re-render the table and summary based on current inputs. A "Save Data" button is added above the table to download data as TXT or conceptually save to Google Sheet. An "Import File" button is added next to the Prompt section for conceptual file import. All cost calculations (total budget, daily category costs in the chart) and itinerary dates are scaled proportionally based on these inputs. The displayed itinerary rows are filtered to match the selected date range. These selections dynamically update a summary section ("Mon Voyage") with key metrics (total cost, total distance, number of days selected) and a list of chosen items grouped by day. A dynamic Chart.js bar chart provides a visual breakdown of daily costs for the selected itinerary. This structure was chosen to empower the user to actively build and visualize their own trip with granular control over each expense category, group size, flexible dates, and a defined persona/prompt/restrictions, moving beyond a static report to a functional planning tool. The flow is: 1. Define context, persona, prompt, restrictions (via dropdown and new text inputs), adjust number of people, arrival/departure dates, and specify travel zone. 2. Understand the options in the main table (filtered by dates). 3. Select desired individual accommodation, meal, and activity items. 4. Instantly see the impact on the summary and budget visualization. -->
+    <!-- Visualization & Content Choices: Report Info: Daily itinerary details (transport costs, location, date, distance, highlights, vigilance, GPS, source links), and now granular, selectable options for accommodation, meals, and activities with their individual costs and dynamically matched source links. Goal: Allow users to build a highly customized trip by selecting specific items, easily access relevant external information for each item, understand its detailed budget breakdown, scale costs based on group size, adjust itinerary dates, and define the travel zone, context, persona, and prompt, along with travel restrictions. Viz/Presentation Method: An interactive HTML table for detailed data, selection buttons for each item with integrated "Lien" text links, and clickable 'Ville / Lieu' cells (with added arrival/departure markers) for direct source access. Numerical inputs for group size and date inputs for arrival/departure. Text inputs for "Zone de voyage", "Contexte". Dropdowns for "Persona", "Prompt", and "Restriction" with textareas/inputs and clickable buttons for selection/customization. Summary cards for key metrics, and a Chart.js stacked bar chart for a visual budget breakdown by daily category. Interaction: Buttons for each accommodation, meal, and activity item trigger updates to the summary section and the chart. Clicking the 'Ville / Lieu' text navigates to the first associated source link. Clicking the "Lien" text next to an item button navigates to its specific source link. The number of people and arrival/departure date inputs dynamically scale all relevant costs and adjust/filter all itinerary dates and displayed content. The "Contexte", "Persona", "Prompt", "Zone de voyage", and "Restriction" inputs serve as conceptual indicators of the travel profile, role, query, area, and constraints, intended for external search integration. Justification: This combination of a detailed table with fine-grained selection, direct linking to specific item sources, group size adjustment, dynamic date adjustment, user-defined context/persona/prompt/travel zone/restriction inputs, and visual summaries (cards, chart) offers maximum control, clarity, and external information access for trip organization, allowing users to tailor their experience and budget precisely. Library/Method: Vanilla JS for state management and DOM manipulation, Chart.js for dynamic data visualization (Canvas-based). -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #FDFBF8;
+            color: #4A4A4A;
+        }
+        .warm-shadow {
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+        }
+        .card {
+            background-color: #FFFFFF;
+            border-radius: 0.75rem;
+            border: 1px solid #F0EAE4;
+            transition: all 0.3s ease;
+        }
+        .card:hover {
+             box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 900px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 350px;
+            max-height: 450px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 400px;
+            }
+        }
+        .item-button {
+            background-color: #EFEBE7;
+            color: #4A4A4A;
+            padding: 0.4rem 0.8rem;
+            border-radius: 0.5rem;
+            border: 1px solid #D1D5DB;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 0.875rem;
+            margin-bottom: 0.25rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            white-space: nowrap;
+            text-align: left; /* Align text left within button */
+        }
+        .item-button:hover {
+            background-color: #D4BFAA;
+            color: #FFFFFF;
+            border-color: #A88B79;
+        }
+        .item-button.selected {
+            background-color: #A88B79;
+            color: #FFFFFF;
+            border-color: #816B5A;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        .tooltip {
+            position: relative;
+            display: inline-block;
+            cursor: pointer;
+        }
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            width: 220px;
+            background-color: #555;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 5px 10px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -110px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-size: 0.8rem;
+            font-weight: 400;
+        }
+        .tooltip .tooltiptext::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #555 transparent transparent transparent;
+        }
+        .tooltip:hover .tooltiptext {
+            visibility: visible;
+            opacity: 1;
+        }
+        .item-list-container {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem; /* Space between buttons */
+        }
+        .item-link {
+            margin-left: 0.5rem;
+            color: #3B82F6; /* blue-500 */
+            cursor: pointer;
+            text-decoration: underline;
+            font-size: 0.8em;
+            white-space: nowrap;
+        }
+        .item-link:hover {
+            color: #2563EB; /* blue-600 */
+        }
+        .error-message {
+            color: #EF4444; /* Red-500 */
+            font-size: 0.875rem;
+            margin-top: 0.5rem;
+            text-align: center;
+        }
+        .restriction-option-button {
+            background-color: transparent;
+            color: #4A4A4A;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            border: 1px solid transparent;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 0.875rem;
+            text-align: left;
+            width: 100%;
+        }
+        .restriction-option-button:hover {
+            background-color: #F0EAE4;
+        }
+        .restriction-option-button.selected {
+            background-color: #D4BFAA;
+            color: #FFFFFF;
+            border-color: #A88B79;
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8">
+        
+        <header class="text-center mb-10">
+            <h1 class="text-4xl md:text-5xl font-bold text-[#A88B79] mb-2">Planificateur de Voyage Interactif</h1>
+            <p class="text-lg text-gray-600">Votre Aventure Personnalisée dans l'Ouest Américain</p>
+            <button id="refresh-table-button" class="mt-4 p-3 bg-[#A88B79] text-white rounded-md hover:bg-[#816B5A] transition shadow-md">Actualiser le Tableau</button>
+        </header>
+
+        <div class="card p-6 mb-8 warm-shadow">
+            <h2 class="text-2xl font-bold text-[#A88B79] mb-3">Options de Personnalisation</h2>
+            
+            <div class="flex flex-col sm:flex-row items-start justify-center space-y-2 sm:space-y-0 sm:space-x-2 mb-4">
+                <label for="contexte-input" class="text-gray-700 font-semibold mt-2 sm:mt-0">Contexte :</label>
+                <textarea id="contexte-input" rows="4" class="p-2 border border-gray-300 rounded-md flex-grow text-gray-800 w-full">une famille de 2 adultes et deux jeunes filles de 15 ans.
+Polyglotte français anglais et habituer à voyager.
+Sensibles aux grand espaces, passionné de photographie, éviter les lieux touristiques ordinaire, emblématiques si possible pour des solutions plus exceptionnelles.</textarea>
+            </div>
+
+            <!-- New Restriction Section -->
+            <div class="flex flex-col mb-4">
+                <label for="restriction-display" class="text-gray-700 font-semibold mb-1">Restriction :</label>
+                <input type="text" id="restriction-display" class="p-2 border border-gray-300 rounded-md text-gray-800 w-full" placeholder="Restrictions sélectionnées..." readonly>
+                <button id="toggle-restrictions" class="mt-2 p-2 bg-[#A88B79] text-white rounded-md hover:bg-[#816B5A] transition">Sélectionner Restrictions</button>
+                <div id="restrictions-dropdown" class="hidden mt-2 p-4 card">
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div>
+                            <h4 class="font-semibold text-[#A88B79] mb-2">Impossible</h4>
+                            <input type="text" class="p-1 border border-gray-300 rounded-md w-full text-sm mb-2 add-restriction-input" data-column="Impossible" placeholder="Ajouter une restriction...">
+                            <ul class="space-y-1 text-sm restriction-list" data-column="Impossible">
+                                <li><button class="restriction-option-button" data-value="Accessibilité fauteuil roulant">Accessibilité fauteuil roulant</button></li>
+                                <li><button class="restriction-option-button" data-value="Allergies alimentaires graves">Allergies alimentaires graves</button></li>
+                                <li><button class="restriction-option-button" data-value="Phobie des hauteurs">Phobie des hauteurs</button></li>
+                                <li><button class="restriction-option-button" data-value="Mouvements brusques">Mouvements brusques</button></li>
+                                <li><button class="restriction-option-button" data-value="Espaces clos">Espaces clos</button></li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-[#A88B79] mb-2">Supportable</h4>
+                            <input type="text" class="p-1 border border-gray-300 rounded-md w-full text-sm mb-2 add-restriction-input" data-column="Supportable" placeholder="Ajouter une restriction...">
+                            <ul class="space-y-1 text-sm restriction-list" data-column="Supportable">
+                                <li><button class="restriction-option-button" data-value="Longs trajets en voiture">Longs trajets en voiture</button></li>
+                                <li><button class="restriction-option-button" data-value="Foules modérées">Foules modérées</button></li>
+                                <li><button class="restriction-option-button" data-value="Nourriture épicée occasionnelle">Nourriture épicée occasionnelle</button></li>
+                                <li><button class="restriction-option-button" data-value="Chaleur modérée">Chaleur modérée</button></li>
+                                <li><button class="restriction-option-button" data-value="Froid modéré">Froid modéré</button></li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-[#A88B79] mb-2">Acceptable</h4>
+                            <input type="text" class="p-1 border border-gray-300 rounded-md w-full text-sm mb-2 add-restriction-input" data-column="Acceptable" placeholder="Ajouter une restriction...">
+                            <ul class="space-y-1 text-sm restriction-list" data-column="Acceptable">
+                                <li><button class="restriction-option-button" data-value="Randonnées modérées">Randonnées modérées</button></li>
+                                <li><button class="restriction-option-button" data-value="Climat sec">Climat sec</button></li>
+                                <li><button class="restriction-option-button" data-value="Décalage horaire">Décalage horaire</button></li>
+                                <li><button class="restriction-option-button" data-value="Cuisine locale variée">Cuisine locale variée</button></li>
+                                <li><button class="restriction-option-button" data-value="Activités nocturnes">Activités nocturnes</button></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <!-- Persona Dropdown -->
+                <div class="flex flex-col">
+                    <label for="persona-display" class="text-gray-700 font-semibold mb-1">Persona :</label>
+                    <input type="text" id="persona-display" class="p-2 border border-gray-300 rounded-md text-gray-800 w-full" placeholder="Persona sélectionnée..." readonly>
+                    <button id="toggle-persona" class="mt-2 p-2 bg-[#A88B79] text-white rounded-md hover:bg-[#816B5A] transition">Sélectionner Persona</button>
+                    <div id="persona-dropdown" class="hidden mt-2 p-4 card">
+                        <textarea id="persona-role" rows="8" class="p-2 border border-gray-300 rounded-md text-gray-800 w-full">Tu es un expert voyagiste, tour-opérateur.
+Tu maitrise : Le conseiller en voyages est un professionnel expert qui répond au mieux aux besoins des clients en matière de voyages.
+Organise et vend des séjours touristiques personnalisés
+Conseille les clients sur les destinations, les transports et les hébergements
+Gère les réservations de vols, hôtels et autres services liés au voyage
+Propose et vend des excursions et des activités locales
+Assure le suivi clientèle avant, pendant et après le voyage
+Résout les problèmes et gère les imprévus lors des voyages
+Spécialiste de l’organisation de voyage</textarea>
+                    </div>
+                </div>
+                <!-- Prompt Dropdown -->
+                <div class="flex flex-col">
+                    <label for="prompt-display" class="text-gray-700 font-semibold mb-1">Prompt :</label>
+                    <input type="text" id="prompt-display" class="p-2 border border-gray-300 rounded-md text-gray-800 w-full" placeholder="Prompt actuel..." readonly>
+                    <button id="toggle-prompt" class="mt-2 p-2 bg-[#A88B79] text-white rounded-md hover:bg-[#816B5A] transition">Éditer Prompt</button>
+                    <div id="prompt-dropdown" class="hidden mt-2 p-4 card">
+                        <textarea id="prompt-input" rows="8" class="p-2 border border-gray-300 rounded-md text-gray-800 w-full" placeholder="Décrivez votre requête ou votre besoin ici..."></textarea>
+                    </div>
+                </div>
+                <!-- Import Button -->
+                <div class="flex flex-col items-center justify-center">
+                    <label for="import-file-button" class="text-gray-700 font-semibold mb-1">Importer Fichier :</label>
+                    <button id="import-file-button" class="mt-2 p-2 bg-[#A88B79] text-white rounded-md hover:bg-[#816B5A] transition w-full">Importer Fichier</button>
+                    <input type="file" id="hidden-file-input" class="hidden" accept=".doc,.docx,.txt,.xls,.xlsx,.pdf">
+                    <p class="text-sm text-gray-500 mt-2 text-center">
+                        (Google Doc / Word / TXT ou Excel / Google Sheet)
+                    </p>
+                </div>
+            </div>
+
+            <div class="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-4 mb-4">
+                <div class="flex items-center space-x-2">
+                    <label for="num-people" class="text-gray-700 font-semibold">Nombre de personnes :</label>
+                    <input type="number" id="num-people" value="4" min="1" class="p-2 border border-gray-300 rounded-md w-20 text-center text-gray-800">
+                </div>
+                <div class="flex items-center space-x-2">
+                    <label for="arrival-date" class="text-gray-700 font-semibold">Date d'arrivée :</label>
+                    <input type="date" id="arrival-date" class="p-2 border border-gray-300 rounded-md text-gray-800">
+                </div>
+                <div class="flex items-center space-x-2">
+                    <label for="departure-date" class="text-gray-700 font-semibold">Date de départ :</label>
+                    <input type="date" id="departure-date" class="p-2 border border-gray-300 rounded-md text-gray-800">
+                </div>
+            </div>
+            <div class="flex flex-col sm:flex-row items-center justify-center space-y-2 sm:space-y-0 sm:space-x-2 mb-4">
+                <label for="travel-zone" class="text-gray-700 font-semibold">Zone de voyage :</label>
+                <input type="text" id="travel-zone" value="Californie, Arizona, Utah" class="p-2 border border-gray-300 rounded-md flex-grow text-gray-800">
+            </div>
+            <div id="date-error-message" class="error-message hidden">La date de départ doit être égale ou postérieure à la date d'arrivée.</div>
+        </div>
+
+        <main>
+            <div class="flex justify-end mb-4">
+                <button id="save-data-button" class="p-3 bg-[#A88B79] text-white rounded-md hover:bg-[#816B5A] transition shadow-md">Enregistrer les Données</button>
+            </div>
+            <div class="overflow-x-auto">
+                <table id="itinerary-table" class="min-w-full bg-white warm-shadow rounded-lg">
+                    <thead class="bg-[#A88B79] text-white">
+                        <tr>
+                            <th class="p-4 text-left text-sm font-semibold uppercase tracking-wider">#</th>
+                            <th class="p-4 text-left text-sm font-semibold uppercase tracking-wider">Priorité</th>
+                            <th class="p-4 text-left text-sm font-semibold uppercase tracking-wider">Zone Géographique</th>
+                            <th class="p-4 text-left text-sm font-semibold uppercase tracking-wider">Ville / Lieu</th>
+                            <th class="p-4 text-left text-sm font-semibold uppercase tracking-wider">Date</th>
+                            <th class="p-4 text-left text-sm font-semibold uppercase tracking-wider">Kms entre chaque étapes</th>
+                            <th class="p-4 text-left text-sm font-semibold uppercase tracking-wider" id="transport-cost-header">Prix trajets (4 pers.)</th>
+                            <th class="p-4 text-left text-sm font-semibold uppercase tracking-wider">Hébergement Suggéré</th>
+                            <th class="p-4 text-left text-sm font-semibold uppercase tracking-wider">Repas Suggéré</th>
+                            <th class="p-4 text-left text-sm font-semibold uppercase tracking-wider">Activités Suggérées (pour 4 pers.)</th>
+                            <th class="p-4 text-left text-sm font-semibold uppercase tracking-wider">Points Forts</th>
+                            <th class="p-4 text-left text-sm font-semibold uppercase tracking-wider">Points de Vigilance</th>
+                            <th class="p-4 text-left text-sm font-semibold uppercase tracking-wider">Position GPS</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body" class="divide-y divide-gray-200">
+                    </tbody>
+                </table>
+            </div>
+
+            <div id="summary-section" class="mt-12">
+                <h2 class="text-3xl font-bold text-center text-[#A88B79] mb-8">Mon Voyage Personnalisé</h2>
+                <div id="summary-content" class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div id="summary-metrics" class="md:col-span-1 space-y-4">
+                        <div class="card p-6 text-center">
+                            <h3 class="text-lg font-semibold text-gray-500">Budget Total Estimé</h3>
+                            <p id="total-cost" class="text-4xl font-bold text-[#A88B79]">0 $</p>
+                        </div>
+                        <div class="card p-6 text-center">
+                            <h3 class="text-lg font-semibold text-gray-500">Distance Totale Estimée</h3>
+                            <p id="total-kms" class="text-4xl font-bold text-[#A88B79]">0 km</p>
+                        </div>
+                         <div class="card p-6 text-center">
+                            <h3 class="text-lg font-semibold text-gray-500">Jours Sélectionnés</h3>
+                            <p id="total-days" class="text-4xl font-bold text-[#A88B79]">0</p>
+                        </div>
+                    </div>
+                    <div id="selected-stages-container" class="md:col-span-2 card p-6">
+                        <h3 class="text-2xl font-bold text-[#A88B79] mb-4">Éléments Choisis</h3>
+                        <ul id="selected-activities-list" class="space-y-3 h-80 overflow-y-auto pr-2">
+                           <li class="text-gray-500">Sélectionnez des éléments dans le tableau pour commencer.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div id="chart-section" class="mt-12">
+                 <h2 class="text-3xl font-bold text-center text-[#A88B79] mb-8">Visualisation du Budget</h2>
+                 <div class="card p-4 sm:p-6">
+                    <div class="chart-container">
+                        <canvas id="budgetChart"></canvas>
+                    </div>
+                    <p id="chart-placeholder" class="text-center text-gray-500 mt-4">Le graphique s'affichera ici une fois que vous aurez sélectionné des éléments.</p>
+                 </div>
+            </div>
+
+        </main>
+    </div>
+
+    <script>
+        const itineraryData = [
+            { id: 1, priority: '★★★★', geographicZone: 'Californie', location: 'Los Angeles', date: '20/12/2025', distance: 0, cost: { transport: 46 }, activities_main_cost: 168, activities_main_name: 'Arrivée & Griffith Observatory (tour)', vigilance: 'Trafic important.', highlights: 'Temps doux en hiver. Vues panoramiques depuis Griffith Observatory. Ambiance décontractée à Santa Monica.', gpsPosition: '34.05° N, -118.24° W', sourceLinks: ['https://freehandhotels.com/los-angeles/', 'https://griffithobservatory.org/', 'https://www.getty.edu/visit/center/', 'https://www.lastbookstorela.com/', 'https://www.laconservancy.org/locations/bradbury-building'], extras: [
+                { name: 'The Getty Center (Art & Architecture)', cost: 15 },
+                { name: 'The Last Bookstore (Exploration)', cost: 0 },
+                { name: 'Hollywood Walk of Fame & TCL Chinese Theatre', cost: 0 },
+                { name: 'Santa Monica Pier & Beach', cost: 20 },
+                { name: 'Venice Canals Walkway', cost: 0 },
+            ],
+            accommodationOptions: [
+                { name: 'Freehand Los Angeles', cost: 350, source: 'https://freehandhotels.com/los-angeles/' },
+                { name: 'Hotel June', cost: 250, source: 'https://www.hoteljunela.com/' },
+                { name: 'The Hoxton, Downtown LA', cost: 200, source: 'https://thehoxton.com/los-angeles/' },
+                { name: 'The Line Hotel', cost: 180, source: 'https://www.thelinehotel.com/los-angeles/' },
+                { name: 'Palihouse Santa Monica', cost: 300, source: 'https://www.palihouse.com/hotels/santa-monica/' }
+            ],
+            mealOptions: [
+                { name: 'In-N-Out Burger', cost: 28, source: 'https://www.in-n-out.com/' },
+                { name: 'Grand Central Market', cost: 50, source: 'https://www.grandcentralmarket.com/' },
+                { name: 'Roscoe\'s House of Chicken and Waffles', cost: 60, source: 'https://www.roscoeschickenandwaffles.com/' },
+                { name: 'Local Taco Truck', cost: 40, source: '' },
+                { name: 'Sqirl (Breakfast/Brunch)', cost: 70, source: 'https://sqirlla.com/' }
+            ]},
+            { id: 2, priority: '★★★★', geographicZone: 'Californie', location: 'Los Angeles', date: '21/12/2025', distance: 0, cost: { transport: 46 }, activities_main_cost: 616, activities_main_name: 'Universal Studios Hollywood', vigilance: 'Forte affluence.', highlights: 'Divertissement pour adolescents (Harry Potter, simulateurs). Immersion dans le monde du cinéma.', gpsPosition: '34.05° N, -118.24° W', sourceLinks: ['https://www.universalstudioshollywood.com/', 'https://www.aquariumofpacific.org/', 'https://www.lazoo.org/', 'https://www.getyourguide.com/los-angeles-l322/the-original-hollywood-sign-walking-tour-t409153/'], extras: [
+                { name: 'Warner Bros. Studio Tour', cost: 304 },
+                { name: 'Randonnée à Runyon Canyon Park', cost: 0 },
+                { name: 'Aquarium of the Pacific', cost: 180 },
+                { name: 'Los Angeles Zoo & Botanical Gardens', cost: 88 },
+                { name: 'Hollywood Sign Walking Tour', cost: 236 },
+            ],
+            accommodationOptions: [
+                { name: 'Freehand Los Angeles', cost: 350, source: 'https://freehandhotels.com/los-angeles/' },
+                { name: 'Hotel June', cost: 250, source: 'https://www.hoteljunela.com/' },
+                { name: 'The Hoxton, Downtown LA', cost: 200, source: 'https://thehoxton.com/los-angeles/' },
+                { name: 'The Line Hotel', cost: 180, source: 'https://www.thelinehotel.com/los-angeles/' },
+                { name: 'Palihouse Santa Monica', cost: 300, source: 'https://www.palihouse.com/hotels/santa-monica/' }
+            ],
+            mealOptions: [
+                { name: 'In-N-Out Burger', cost: 28, source: 'https://www.in-n-out.com/' },
+                { name: 'Grand Central Market', cost: 50, source: 'https://www.grandcentralmarket.com/' },
+                { name: 'Roscoe\'s House of Chicken and Waffles', cost: 60, source: 'https://www.roscoeschickenandwaffles.com/' },
+                { name: 'Local Taco Truck', cost: 40, source: '' },
+                { name: 'Sqirl (Breakfast/Brunch)', cost: 70, source: 'https://sqirlla.com/' }
+            ]},
+            { id: 3, priority: '★★★★', geographicZone: 'Californie', location: 'Los Angeles', date: '22/12/2025', distance: 0, cost: { transport: 46 }, activities_main_cost: 0, activities_main_name: 'Exploration : Venice, Bradbury Building, Melrose Ave', vigilance: 'Quartiers pouvant être très fréquentés.', highlights: 'Découverte de quartiers uniques et moins conventionnels. Opportunités de photographie.', gpsPosition: '34.05° N, -118.24° W', sourceLinks: ['https://www.laconservancy.org/locations/bradbury-building', 'https://www.sofistadium.com/tours/', 'https://www.tclchinesetheatres.com/', 'https://www.madametussauds.com/hollywood/', 'https://molaa.org/', 'https://www.lastbookstorela.com/'], extras: [
+                { name: 'SoFi Stadium Tour', cost: 227 },
+                { name: 'TCL Chinese Theatre Tour or Movie', cost: 99 },
+                { name: 'Madame Tussauds Hollywood', cost: 140 },
+                { name: 'Petersen Automotive Museum', cost: 80 },
+                { name: 'Shopping sur Rodeo Drive', cost: 0 },
+            ],
+            accommodationOptions: [
+                { name: 'Freehand Los Angeles', cost: 350, source: 'https://freehandhotels.com/los-angeles/' },
+                { name: 'Hotel June', cost: 250, source: 'https://www.hoteljunela.com/' },
+                { name: 'The Hoxton, Downtown LA', cost: 200, source: 'https://thehoxton.com/los-angeles/' },
+                { name: 'The Line Hotel', cost: 180, source: 'https://www.thelinehotel.com/los-angeles/' },
+                { name: 'Palihouse Santa Monica', cost: 300, source: 'https://www.palihouse.com/hotels/santa-monica/' }
+            ],
+            mealOptions: [
+                { name: 'In-N-Out Burger', cost: 28, source: 'https://www.in-n-out.com/' },
+                { name: 'Grand Central Market', cost: 50, source: 'https://www.grandcentralmarket.com/' },
+                { name: 'Roscoe\'s House of Chicken and Waffles', cost: 60, source: 'https://www.roscoeschickenandwaffles.com/' },
+                { name: 'Local Taco Truck', cost: 40, source: '' },
+                { name: 'Sqirl (Breakfast/Brunch)', cost: 70, source: 'https://sqirlla.com/' }
+            ]},
+            { id: 4, priority: '★★★', geographicZone: 'Californie', location: 'Los Angeles', date: '23/12/2025', distance: 0, cost: { transport: 46 }, activities_main_cost: 0, activities_main_name: 'Journée plage & détente à Santa Monica', vigilance: 'Eau de mer froide (15-16°C).', highlights: 'Ambiance décontractée en bord de mer. Activités de plein air.', gpsPosition: '34.05° N, -118.24° W', sourceLinks: [], extras: [
+                { name: 'Whale Watch & Dolphin Tour (Newport Beach)', cost: 284 },
+                { name: 'Heal the Bay Aquarium', cost: 48 },
+                { name: 'Cours de surf à Huntington Beach', cost: 400 },
+                { name: 'La Brea Tar Pits and Museum', cost: 72 },
+                { name: 'Randonnée dans les Santa Monica Mountains', cost: 0 },
+            ],
+            accommodationOptions: [
+                { name: 'Freehand Los Angeles', cost: 350, source: 'https://freehandhotels.com/los-angeles/' },
+                { name: 'Hotel June', cost: 250, source: 'https://www.hoteljunela.com/' },
+                { name: 'The Hoxton, Downtown LA', cost: 200, source: 'https://thehoxton.com/los-angeles/' },
+                { name: 'The Line Hotel', cost: 180, source: 'https://www.thelinehotel.com/los-angeles/' },
+                { name: 'Palihouse Santa Monica', cost: 300, source: 'https://www.palihouse.com/hotels/santa-monica/' }
+            ],
+            mealOptions: [
+                { name: 'In-N-Out Burger', cost: 28, source: 'https://www.in-n-out.com/' },
+                { name: 'Grand Central Market', cost: 50, source: 'https://www.grandcentralmarket.com/' },
+                { name: 'Roscoe\'s House of Chicken and Waffles', cost: 60, source: 'https://www.roscoeschickenandwaffles.com/' },
+                { name: 'Local Taco Truck', cost: 40, source: '' },
+                { name: 'Sqirl (Breakfast/Brunch)', cost: 70, source: 'https://sqirlla.com/' }
+            ]},
+            { id: 5, priority: '★★★', geographicZone: 'Californie', location: 'Los Angeles', date: '24/12/2025', distance: 0, cost: { transport: 46 }, activities_main_cost: 700, activities_main_name: 'Disneyland Resort (Veille de Noël)', vigilance: 'Très forte affluence et prix élevés.', highlights: 'Ambiance festive de Noël. Attractions uniques.', gpsPosition: '34.05° N, -118.24° W', sourceLinks: ['https://www.disneyland.disney.go.com/', 'https://www.knotts.com/', 'https://www.anaheimgardenwalk.com/'], extras: [
+                { name: "Knott's Berry Farm (Parc à thème)", cost: 316 },
+                { name: 'Anaheim GardenWalk (Shopping & Restos)', cost: 0 },
+                { name: 'Holiday Boat Parades (Marina del Rey)', cost: 0 },
+                { name: 'Visite de Santa Barbara (Excursion)', cost: 50 },
+                { name: 'Dîner de réveillon spécial', cost: 400 },
+            ],
+            accommodationOptions: [
+                { name: 'Freehand Los Angeles', cost: 350, source: 'https://freehandhotels.com/los-angeles/' },
+                { name: 'Hotel June', cost: 250, source: 'https://www.hoteljunela.com/' },
+                { name: 'The Hoxton, Downtown LA', cost: 200, source: 'https://thehoxton.com/los-angeles/' },
+                { name: 'The Line Hotel', cost: 180, source: 'https://www.thelinehotel.com/los-angeles/' },
+                { name: 'Palihouse Santa Monica', cost: 300, source: 'https://www.palihouse.com/hotels/santa-monica/' }
+            ],
+            mealOptions: [
+                { name: 'In-N-Out Burger', cost: 28, source: 'https://www.in-n-out.com/' },
+                { name: 'Grand Central Market', cost: 50, source: 'https://www.grandcentralmarket.com/' },
+                { name: 'Roscoe\'s House of Chicken and Waffles', cost: 60, source: 'https://www.roscoeschickenandwaffles.com/' },
+                { name: 'Local Taco Truck', cost: 40, source: '' },
+                { name: 'Sqirl (Breakfast/Brunch)', cost: 70, source: 'https://sqirlla.com/' }
+            ]},
+            { id: 6, priority: '★★★', geographicZone: 'Californie', location: 'Los Angeles', date: '25/12/2025', distance: 0, cost: { transport: 46 }, activities_main_cost: 700, activities_main_name: 'Disneyland Resort (Jour de Noël)', vigilance: 'Affluence maximale.', highlights: 'Profiter pleinement des festivités de Noël.', gpsPosition: '34.05° N, -118.24° W', sourceLinks: ['https://www.disneyland.disney.go.com/', 'https://www.getty.edu/visit/center/', 'https://www.laconservancy.org/locations/bradbury-building', 'https://www.lastbookstorela.com/'], extras: [
+                { name: 'The Getty Center (si ouvert)', cost: 15 },
+                { name: 'Cinéma (tradition américaine de Noël)', cost: 80 },
+                { name: 'Bénévolat dans une association locale', cost: 0 },
+                { name: 'Brunch de Noël dans un grand hôtel', cost: 500 },
+                { name: 'Patinoire en plein air (ex: Pershing Square)', cost: 80 },
+            ],
+            accommodationOptions: [
+                { name: 'Freehand Los Angeles', cost: 350, source: 'https://freehandhotels.com/los-angeles/' },
+                { name: 'Hotel June', cost: 250, source: 'https://www.hoteljunela.com/' },
+                { name: 'The Hoxton, Downtown LA', cost: 200, source: 'https://thehoxton.com/los-angeles/' },
+                { name: 'The Line Hotel', cost: 180, source: 'https://www.thelinehotel.com/los-angeles/' },
+                { name: 'Palihouse Santa Monica', cost: 300, source: 'https://www.palihouse.com/hotels/santa-monica/' }
+            ],
+            mealOptions: [
+                { name: 'In-N-Out Burger', cost: 28, source: 'https://www.in-n-out.com/' },
+                { name: 'Grand Central Market', cost: 50, source: 'https://www.grandcentralmarket.com/' },
+                { name: 'Roscoe\'s House of Chicken and Waffles', cost: 60, source: 'https://www.roscoeschickenandwaffles.com/' },
+                { name: 'Local Taco Truck', cost: 40, source: '' },
+                { name: 'Sqirl (Breakfast/Brunch)', cost: 70, source: 'https://sqirlla.com/' }
+            ]},
+            { id: 7, priority: '★★★', geographicZone: 'Californie', location: 'Los Angeles', date: '26/12/2025', distance: 0, cost: { transport: 46 }, activities_main_cost: 0, activities_main_name: 'Préparation pour le road trip', vigilance: 'Vérifier l\'état des routes.', highlights: 'Flexibilité pour les derniers préparatifs.', gpsPosition: '34.05° N, -118.24° W', sourceLinks: ['https://www.getty.edu/visit/center/', 'https://www.laconservancy.org/locations/bradbury-building', 'https://www.lastbookstorela.com/'], extras: [
+                { name: 'Shopping (soldes post-Noël) à The Grove', cost: 0 },
+                { name: 'Visite du California Science Center', cost: 0 },
+                { name: 'Dernière balade sur la plage', cost: 0 },
+                { name: 'Faire les courses pour le road trip', cost: 100 },
+                { name: 'Visite du Natural History Museum', cost: 72 },
+            ],
+            accommodationOptions: [
+                { name: 'Freehand Los Angeles', cost: 350, source: 'https://freehandhotels.com/los-angeles/' },
+                { name: 'Hotel June', cost: 250, source: 'https://www.hoteljunela.com/' },
+                { name: 'The Hoxton, Downtown LA', cost: 200, source: 'https://thehoxton.com/los-angeles/' },
+                { name: 'The Line Hotel', cost: 180, source: 'https://www.thelinehotel.com/los-angeles/' },
+                { name: 'Palihouse Santa Monica', cost: 300, source: 'https://www.palihouse.com/hotels/santa-monica/' }
+            ],
+            mealOptions: [
+                { name: 'In-N-Out Burger', cost: 28, source: 'https://www.in-n-out.com/' },
+                { name: 'Grand Central Market', cost: 50, source: 'https://www.grandcentralmarket.com/' },
+                { name: 'Roscoe\'s House of Chicken and Waffles', cost: 60, source: 'https://www.roscoeschickenandwaffles.com/' },
+                { name: 'Local Taco Truck', cost: 40, source: '' },
+                { name: 'Sqirl (Breakfast/Brunch)', cost: 70, source: 'https://sqirlla.com/' }
+            ]},
+            { id: 8, priority: '★★★★', geographicZone: 'Californie / Arizona', location: 'Joshua Tree / Laughlin', date: '27/12/2025', distance: 450, cost: { transport: 90 }, activities_main_cost: 35, activities_main_name: 'Route vers Joshua Tree NP, puis Laughlin', vigilance: 'Conditions routières hivernales possibles.', highlights: 'Paysages désertiques uniques. Ciel nocturne clair pour l\'observation des étoiles.', gpsPosition: '34.1°N 116.27°W | Laughlin: 35°8′30″N 114°37′7″W', sourceLinks: ['https://www.nps.gov/jotr/index.htm', 'https://www.riversideresort.com/', 'https://www.aquariuscasinoresort.com/', 'https://www.caesars.com/harrahs-laughlin', 'https://www.avicasino.com/', 'https://www.bubbagumpshrimp.com/locations/laughlin-nv/', 'https://www.riversideresort.com/restaurants/gourmet-room', 'https://www.pandaexpress.com/', 'https://www.avicasino.com/dining-nightlife/cook-book-restaurant'], extras: [
+                { name: 'Randonnée Cholla Cactus Garden', cost: 0 },
+                { name: 'Randonnée Hidden Valley Nature Trail', cost: 0 },
+                { name: 'Coucher de soleil à Keys View', cost: 0 },
+                { name: 'Observation des étoiles (ciel exceptionnel)', cost: 0 },
+                { name: 'Exploration de la Route 66 près de Kingman', cost: 0 },
+            ],
+            accommodationOptions: [
+                { name: 'Don Laughlin\'s Riverside Resort Hotel & Casino', cost: 100, source: 'https://www.riversideresort.com/' },
+                { name: 'Aquarius Casino Resort', cost: 150, source: 'https://www.aquariuscasinoresort.com/' },
+                { name: 'Harrah\'s Laughlin Beach Resort & Casino', cost: 150, source: 'https://www.caesars.com/harrahs-laughlin' },
+                { name: 'Avi Resort & Casino', cost: 100, source: 'https://www.avicasino.com/' },
+                { name: 'Motel 6 Laughlin', cost: 80, source: 'https://www.motel6.com/en/motels.nv.laughlin.8697.html' }
+            ],
+            mealOptions: [
+                { name: 'Panda Express', cost: 50, source: 'https://www.pandaexpress.com/' },
+                { name: 'Cook Book Restaurant', cost: 120, source: 'https://www.avicasino.com/dining-nightlife/cook-book-restaurant' },
+                { name: 'Denny\'s (Diner Américain)', cost: 60, source: 'https://www.dennys.com/' },
+                { name: 'In-N-Out Burger (si disponible)', cost: 30, source: 'https://www.in-n-out.com/' },
+                { name: 'Local Pizza Place', cost: 70, source: '' }
+            ]},
+            { id: 9, priority: '★★★★★', geographicZone: 'Arizona', location: 'Grand Canyon South Rim', date: '28/12/2025', distance: 330, cost: { transport: 70 }, activities_main_cost: 1095, activities_main_name: 'Route vers Grand Canyon, survol en hélicoptère', vigilance: 'Très froid, risque de neige/verglas.', highlights: 'Vues époustouflantes, paysages enneigés. Moins de foule en hiver. Hermit Road ouverte aux véhicules privés.', gpsPosition: '36°03\'32"N 112°06\'33"W', sourceLinks: ['https://www.nps.gov/grca/index.htm', 'https://www.grandcanyonlodges.com/lodging/maswik-lodge/', 'https://www.grandcanyonlodges.com/lodging/bright-angel-lodge/', 'https://www.grandcanyonlodges.com/lodging/el-tovar-hotel/', 'https://www.thetrain.com/hotel/', 'https://www.grandcanyonlodges.com/dine/el-tovar-dining-room/', 'https://www.grandcanyonlodges.com/dine/maswik-food-court/', 'https://www.exploregrandcanyon.com/dining', 'https://www.grandcanyonhotels.com/dining/coronado-room/'], extras: [
+                { name: 'Marcher sur le Rim Trail', cost: 0 },
+                { name: 'Descendre Bright Angel Trail (partie sup.)', cost: 0 },
+                { name: 'Visite du Yavapai Geology Museum', cost: 0 },
+                { name: 'Assister à un "Ranger Program"', cost: 0 },
+                { name: 'Photographie au lever/coucher du soleil', cost: 0 },
+            ],
+            accommodationOptions: [
+                { name: 'Maswik Lodge', cost: 250, source: 'https://www.grandcanyonlodges.com/lodging/maswik-lodge/' },
+                { name: 'Bright Angel Lodge', cost: 150, source: 'https://www.grandcanyonlodges.com/lodging/bright-angel-lodge/' },
+                { name: 'El Tovar Hotel', cost: 300, source: 'https://www.grandcanyonlodges.com/lodging/el-tovar-hotel/' },
+                { name: 'The Grand Hotel at Grand Canyon (Tusayan)', cost: 200, source: 'https://www.thetrain.com/hotel/' },
+                { name: 'Best Western Premier Grand Canyon Squire Inn (Tusayan)', cost: 180, source: 'https://www.bestwestern.com/en_US/book/hotels-in-tusayan-arizona/best-western-premier-grand-canyon-squire-inn/propertyCode.03058.html' }
+            ],
+            mealOptions: [
+                { name: 'Maswik Food Court', cost: 104, source: 'https://www.grandcanyonlodges.com/dine/maswik-food-court/' },
+                { name: 'Plaza Bonita', cost: 80, source: 'https://www.exploregrandcanyon.com/dining' },
+                { name: 'Fred Harvey Food Truck', cost: 60, source: 'https://www.grandcanyonlodges.com/dine/maswik-food-court/' },
+                { name: 'Bright Angel Cafe', cost: 80, source: 'https://www.grandcanyonlodges.com/dine/bright-angel-cafe/' },
+                { name: 'We Cook Pizza & Pasta (Tusayan)', cost: 70, source: 'https://www.wecookpizza.com/' }
+            ]},
+            { id: 10, priority: '★★★★★', geographicZone: 'Arizona', location: 'Page', date: '29/12/2025', distance: 346, cost: { transport: 70 }, activities_main_cost: 464, activities_main_name: 'Route vers Page, visite Antelope Canyon', vigilance: 'Réservation Antelope Canyon INDISPENSABLE.', highlights: 'Antelope Canyon est un lieu incroyablement photogénique. Moins de foule en hiver.', gpsPosition: '36°54′51″N 111°30′12″W', sourceLinks: ['https://www.ihg.com/holidayinnexpress/hotels/us/en/page/pgxaz/hoteldetail', 'https://www.hyatt.com/en-US/hotel/arizona/hyatt-place-page-lake-powell/paxzp', 'https://www.monumentvalleyview.com/', 'https://www.lakepowell.com/lodging/lake-powell-resort', 'https://bigjohnstexasbbq.com/', 'https://www.bonkersrestaurant.com/', 'https://birdhousepage.com/', 'https://www.thedambargrille.com/', 'https://antelopecanyon.com/', 'https://www.nps.gov/glca/planyourvisit/horseshoe-bend.htm'], extras: [
+                { name: 'Horseshoe Bend (point de vue)', cost: 10 },
+                { name: 'Visite du Glen Canyon Dam', cost: 20 },
+                { name: 'Croisière sur le Lake Powell', cost: 300 },
+                { name: 'Randonnée au Glen Canyon Dam Overlook', cost: 0 },
+                { name: 'Dîner avec vue sur le lac', cost: 150 },
+            ],
+            accommodationOptions: [
+                { name: 'Holiday Inn Express Page', cost: 180, source: 'https://www.ihg.com/holidayinnexpress/hotels/us/en/page/pgxaz/hoteldetail' },
+                { name: 'Hyatt Place Page', cost: 180, source: 'https://www.hyatt.com/en-US/hotel/arizona/hyatt-place-page-lake-powell/paxzp' },
+                { name: 'Lake Powell Resort', cost: 150, source: 'https://www.lakepowell.com/lodging/lake-powell-resort' },
+                { name: 'Country Inn & Suites by Radisson, Page, AZ', cost: 160, source: 'https://www.radissonhotelsamericas.com/en-us/hotels/country-inn-page-az' },
+                { name: 'Best Western Plus at Lake Powell', cost: 170, source: 'https://www.bestwestern.com/en_US/book/hotels-in-page-arizona/best-western-plus-at-lake-powell/propertyCode.03057.html' }
+            ],
+            mealOptions: [
+                { name: 'Big John\'s Texas Barbecue', cost: 100, source: 'https://bigjohnstexasbbq.com/' },
+                { name: 'Bonkers Restaurant', cost: 100, source: 'https://www.bonkersrestaurant.com/' },
+                { name: 'BirdHouse', cost: 40, source: 'https://birdhousepage.com/' },
+                { name: 'Dam Bar & Grille', cost: 100, source: 'https://www.thedambargrille.com/' },
+                { name: 'Strombolli\'s Italian Restaurant & Pizzeria', cost: 70, source: 'https://strombollis.com/' }
+            ]},
+            { id: 11, priority: '★★★★', geographicZone: 'Utah', location: 'Bryce Canyon National Park', date: '30/12/2025', distance: 647, cost: { transport: 130 }, activities_main_cost: 35, activities_main_name: 'Route via Monument Valley vers Bryce Canyon', vigilance: 'Longue journée de route, froid intense.', highlights: 'Paysages emblématiques de Westerns à Monument Valley. Hoodoos enneigés à Bryce Canyon.', gpsPosition: '37.00414 N 110.09889 W | Bryce Canyon: 37.64°N 112.17°W', sourceLinks: ['https://navajonationparks.org/tribal-parks/monument-valley/', 'https://www.monumentvalleyview.com/', 'https://www.nps.gov/brca/index.htm', 'https://www.bestwestern.com/en_US/book/hotels-in-bryce-canyon-city-utah/best-western-plus-bryce-canyon-grand-hotel/propertyCode.45037.html', 'https://www.rubysinn.com/', 'https://brycecanyonlogcabins.com/', 'https://www.stonecanyoninn.com/', 'https://www.rubysinn.com/dining/cowboys-buffet-steak-room/', 'https://www.rubysinn.com/dining/pizza-place/', 'https://www.brycecanyonmotel.com/restaurant/', 'https://www.ebenezersbarnandgrill.com/'], extras: [
+                { name: 'Tour guidé Navajo à Monument Valley', cost: 320 },
+                { name: 'Randonnée Navajo Loop (si accessible)', cost: 0 },
+                { name: 'Raquettes ou ski de fond', cost: 100 },
+                { name: 'Patinoire à Ruby\'s Inn', cost: 40 },
+                { name: 'Observer le coucher de soleil à Sunset Point', cost: 0 },
+            ],
+            accommodationOptions: [
+                { name: 'Best Western Plus Bryce Canyon Grand Hotel', cost: 150, source: 'https://www.bestwestern.com/en_US/book/hotels-in-bryce-canyon-city-utah/best-western-plus-bryce-canyon-grand-hotel/propertyCode.45037.html' },
+                { name: 'Best Western Plus Ruby\'s Inn', cost: 120, source: 'https://www.rubysinn.com/' },
+                { name: 'Bryce Canyon Log Cabins', cost: 250, source: 'https://brycecanyonlogcabins.com/' },
+                { name: 'Stone Canyon Inn', cost: 200, source: 'https://www.stonecanyoninn.com/' },
+                { name: 'Bryce Canyon Pines (Motel)', cost: 100, source: 'https://www.brycecanyonmotel.com/' }
+            ],
+            mealOptions: [
+                { name: 'The View Restaurant (Monument Valley)', cost: 108, source: 'https://www.monumentvalleyview.com/dining/' },
+                { name: 'Ruby\'s Inn Cowboy\'s Buffet', cost: 104, source: 'https://www.rubysinn.com/dining/cowboys-buffet-steak-room/' },
+                { name: 'Pizza Place (Ruby\'s Inn)', cost: 68, source: 'https://www.rubysinn.com/dining/pizza-place/' },
+                { name: 'Bryce Canyon Pines Restaurant', cost: 120, source: 'https://www.brycecanyonmotel.com/restaurant/' },
+                { name: 'Ebenezer\'s Barn & Grill', cost: 100, source: 'https://www.ebenezersbarnandgrill.com/' }
+            ]},
+            { id: 12, priority: '★★★★', geographicZone: 'Utah / Nevada', location: 'Zion National Park / Las Vegas', date: '31/12/2025', distance: 374, cost: { transport: 80 }, activities_main_cost: 178, activities_main_name: 'Zion NP puis route vers Las Vegas pour le Nouvel An', vigilance: 'Navette obligatoire à Zion, prix élevés à Vegas.', highlights: 'Beauté hivernale de Zion, moins de foule. Célébration du Nouvel An à Las Vegas.', gpsPosition: '37°18′N 113°00′W | Las Vegas: 36.17° N, -115.14° W', sourceLinks: ['https://www.nps.gov/zion/index.htm', 'https://luxor.mgmresorts.com/', 'https://www.caesars.com/paris-las-vegas', 'https://www.venetianlasvegas.com/', 'https://www.circuscircus.mgmresorts.com/', 'https://bellagio.mgmresorts.com/en/restaurants/the-buffet.html', 'https://www.caesars.com/caesars-palace/restaurants/bacchanal-buffet', 'https://dickslastresort.com/locations/las-vegas/', 'https://blackoutdininginthedark.com/', 'https://bellagio.mgmresorts.com/en/entertainment/fountains-of-bellagio.html'], extras: [
+                { name: 'Randonnée Riverside Walk (Zion)', cost: 0 },
+                { name: 'Explorer le Strip de Las Vegas', cost: 0 },
+                { name: 'Spectacle des fontaines du Bellagio', cost: 0 },
+                { name: 'Voir un spectacle du Cirque du Soleil', cost: 600 },
+                { name: 'Feu d\'artifice du Nouvel An sur le Strip', cost: 0 },
+            ],
+            accommodationOptions: [
+                { name: 'Zion National Park Lodge', cost: 250, source: 'https://www.zionlodge.com/' },
+                { name: 'Luxor Hotel & Casino', cost: 150, source: 'https://luxor.mgmresorts.com/' },
+                { name: 'Paris Las Vegas Hotel & Casino', cost: 200, source: 'https://www.caesars.com/paris-las-vegas' },
+                { name: 'The LINQ Hotel + Experience', cost: 150, source: 'https://www.caesars.com/linq-hotel' },
+                { name: 'Flamingo Las Vegas Hotel & Casino', cost: 120, source: 'https://www.caesars.com/flamingo-las-vegas' }
+            ],
+            mealOptions: [
+                { name: 'In-N-Out Burger (Las Vegas)', cost: 30, source: 'https://www.in-n-out.com/' },
+                { name: 'Earl of Sandwich (Planet Hollywood)', cost: 50, source: 'https://www.earlofsandwichusa.com/' },
+                { name: 'Secret Pizza (Cosmopolitan)', cost: 60, source: 'https://www.cosmopolitanlasvegas.com/restaurants/secret-pizza' },
+                { name: 'Tacos El Gordo', cost: 40, source: 'https://tacoselgordobc.com/' },
+                { name: 'Hash House A Go Go', cost: 80, source: 'https://www.hashhouseagogo.com/' }
+            ]},
+            { id: 13, priority: '★★★', geographicZone: 'Nevada / Californie', location: 'Las Vegas / Los Angeles', date: '01/01/2026', distance: 435, cost: { transport: 90 }, activities_main_cost: 0, activities_main_name: 'Route retour vers Los Angeles, vol retour', vigilance: 'Trafic important le 1er janvier.', highlights: 'Retour vers la douceur de la Californie. Possibilité de profiter des dernières heures du voyage.', gpsPosition: '34.05° N, -118.24° W', sourceLinks: ['https://freehandhotels.com/los-angeles/', 'https://www.loewshotels.com/santa-monica-beach-hotel', 'https://www.thestandardhotels.com/los-angles/properties/downtown-la', 'https://www.hoteljunela.com/', 'https://www.in-n-out.com/', 'https://www.grandcentralmarket.com/', 'https://thegriddlecafe.com/', 'https://perchla.com/'], extras: [
+                { name: 'Brunch du Nouvel An à Las Vegas', cost: 300 },
+                { name: 'Arrêt à Calico Ghost Town', cost: 32 },
+                { name: 'Shopping aux outlets de Barstow', cost: 0 },
+                { name: 'Visite de Seven Magic Mountains', cost: 0 },
+                { name: 'Dernier dîner à Santa Monica', cost: 150 },
+            ],
+            accommodationOptions: [
+                { name: 'Freehand Los Angeles', cost: 350, source: 'https://freehandhotels.com/los-angeles/' },
+                { name: 'Hotel June', cost: 250, source: 'https://www.hoteljunela.com/' },
+                { name: 'The Hoxton, Downtown LA', cost: 200, source: 'https://thehoxton.com/los-angeles/' },
+                { name: 'The Line Hotel', cost: 180, source: 'https://www.thelinehotel.com/los-angeles/' },
+                { name: 'Palihouse Santa Monica', cost: 300, source: 'https://www.palihouse.com/hotels/santa-monica/' }
+            ],
+            mealOptions: [
+                { name: 'In-N-Out Burger', cost: 28, source: 'https://www.in-n-out.com/' },
+                { name: 'Grand Central Market', cost: 50, source: 'https://www.grandcentralmarket.com/' },
+                { name: 'Roscoe\'s House of Chicken and Waffles', cost: 60, source: 'https://www.roscoeschickenandwaffles.com/' },
+                { name: 'Local Taco Truck', cost: 40, source: '' },
+                { name: 'Sqirl (Breakfast/Brunch)', cost: 70, source: 'https://sqirlla.com/' }
+            ]},
+        ];
+
+        const ORIGINAL_BASE_PEOPLE = 4; // The costs in itineraryData are based on 4 people.
+        let currentNumberOfPeople = ORIGINAL_BASE_PEOPLE;
+
+        let processedItineraryData = []; // This will hold the itinerary with dynamically updated dates
+        let globalActivityId = 0;
+        const activityMap = new Map(); // Stores {activityId: {dayId, name, cost, type, matchedSourceLink}}
+        const selectedActivityIds = new Set(); // Stores IDs of selected activities
+        let budgetChart = null;
+
+        // Helper functions for date manipulation
+        function parseDate(dateStr) {
+            const [day, month, year] = dateStr.split('/').map(Number);
+            return new Date(year, month - 1, day); // Month is 0-indexed
+        }
+
+        function formatDate(dateObj) {
+            const day = String(dateObj.getDate()).padStart(2, '0');
+            const month = String(dateObj.getMonth() + 1).padStart(2, '0'); // Month is 0-indexed
+            const year = dateObj.getFullYear();
+            return `${day}/${month}/${year}`;
+        }
+
+        function addDays(dateObj, days) {
+            const newDate = new Date(dateObj);
+            newDate.setDate(dateObj.getDate() + days);
+            return newDate;
+        }
+
+        function toISODateString(dateObj) {
+            // Ensure date is in YYYY-MM-DD format for input type="date"
+            return dateObj.toISOString().split('T')[0];
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const numPeopleInput = document.getElementById('num-people');
+            const arrivalDateInput = document.getElementById('arrival-date');
+            const departureDateInput = document.getElementById('departure-date');
+            const travelZoneInput = document.getElementById('travel-zone');
+            const contexteInput = document.getElementById('contexte-input');
+            const personaRoleInput = document.getElementById('persona-role');
+            const promptInput = document.getElementById('prompt-input');
+            const toggleRestrictionsButton = document.getElementById('toggle-restrictions');
+            const restrictionsDropdown = document.getElementById('restrictions-dropdown');
+            const restrictionDisplayInput = document.getElementById('restriction-display');
+            const restrictionOptionButtons = document.querySelectorAll('.restriction-option-button');
+            const addRestrictionInputs = document.querySelectorAll('.add-restriction-input');
+
+            // New buttons
+            const refreshTableButton = document.getElementById('refresh-table-button');
+            const saveDataButton = document.getElementById('save-data-button');
+            const importFileButton = document.getElementById('import-file-button');
+            const hiddenFileInput = document.getElementById('hidden-file-input');
+
+            // Event Listeners for new buttons
+            refreshTableButton.addEventListener('click', () => {
+                updateTableAndSummaryBasedOnDates(); // This will re-populate and update summary/chart
+            });
+
+            saveDataButton.addEventListener('click', () => {
+                saveTableData();
+            });
+
+            importFileButton.addEventListener('click', () => {
+                // For a real application, this would trigger a file picker and then parse the file.
+                // For this standalone HTML, we'll just show a conceptual message.
+                alert("La fonction d'importation de fichiers est conceptuelle dans cette version. Pour une implémentation complète, un serveur backend ou des librairies JavaScript complexes seraient nécessaires pour lire et analyser les fichiers (.doc, .docx, .txt, .xls, .xlsx, .pdf).");
+                // You could also trigger a hidden file input click here if you wanted to allow basic .txt file reading
+                // hiddenFileInput.click();
+            });
+
+            hiddenFileInput.addEventListener('change', (event) => {
+                const file = event.target.files[0];
+                if (file) {
+                    // This is where you'd handle reading the file.
+                    // For .txt files, you could use FileReader.
+                    // For .doc/.docx/.xls/.xlsx/.pdf, it's much more complex client-side.
+                    alert(`Fichier sélectionné : ${file.name}. L'importation et l'analyse de ce type de fichier nécessitent une logique complexe non implémentée dans cette version autonome.`);
+                }
+            });
+
+
+            // Toggle Persona Dropdown
+            document.getElementById('toggle-persona').addEventListener('click', () => {
+                document.getElementById('persona-dropdown').classList.toggle('hidden');
+            });
+            // Update Persona display on textarea input
+            document.getElementById('persona-role').addEventListener('input', (event) => {
+                const displayValue = event.target.value.split('\n')[0] + (event.target.value.split('\n').length > 1 ? '...' : '');
+                document.getElementById('persona-display').value = displayValue;
+            });
+
+            // Toggle Prompt Dropdown
+            document.getElementById('toggle-prompt').addEventListener('click', () => {
+                document.getElementById('prompt-dropdown').classList.toggle('hidden');
+            });
+            // Update Prompt display on textarea input
+            document.getElementById('prompt-input').addEventListener('input', (event) => {
+                const displayValue = event.target.value.split('\n')[0] + (event.target.value.split('\n').length > 1 ? '...' : '');
+                document.getElementById('prompt-display').value = displayValue;
+            });
+            
+            currentNumberOfPeople = parseInt(numPeopleInput.value);
+
+            // Set initial dates from itineraryData
+            const initialArrivalDate = parseDate(itineraryData[0].date);
+            const initialDepartureDate = parseDate(itineraryData[itineraryData.length - 1].date);
+            
+            arrivalDateInput.value = toISODateString(initialArrivalDate);
+            departureDateInput.value = toISODateString(initialDepartureDate);
+            travelZoneInput.value = "Californie, Arizona, Utah";
+            contexteInput.value = `une famille de 2 adultes et deux jeunes filles de 15 ans.
+Polyglotte français anglais et habituer à voyager.
+Sensibles aux grand espaces, passionné de photographie, éviter les lieux touristiques ordinaire, emblématiques si possible pour des solutions plus exceptionnelles.`;
+            personaRoleInput.value = `Tu es un expert voyagiste, tour-opérateur.
+Tu maitrise : Le conseiller en voyages est un professionnel expert qui répond au mieux aux besoins des clients en matière de voyages.
+Organise et vend des séjours touristiques personnalisés
+Conseille les clients sur les destinations, les transports et les hébergements
+Gère les réservations de vols, hôtels et autres services liés au voyage
+Propose et vend des excursions et des activités locales
+Assure le suivi clientèle avant, pendant et après le voyage
+Résout les problèmes et gère les imprévus lors des voyages
+Spécialiste de l’organisation de voyage`;
+            promptInput.placeholder = "Décrivez votre requête ou votre besoin ici...";
+
+            // Initialize display inputs for Persona, Prompt
+            document.getElementById('persona-display').value = personaRoleInput.value.split('\n')[0] + (personaRoleInput.value.split('\n').length > 1 ? '...' : '');
+            document.getElementById('prompt-display').value = promptInput.placeholder; // Or initial value if any
+
+
+            preprocessItineraryData();
+            
+            updateTableAndSummaryBasedOnDates();
+            updateTransportHeader();
+
+            numPeopleInput.addEventListener('change', (event) => {
+                const newNum = parseInt(event.target.value);
+                if (!isNaN(newNum) && newNum > 0) {
+                    currentNumberOfPeople = newNum;
+                } else {
+                    event.target.value = ORIGINAL_BASE_PEOPLE;
+                    currentNumberOfPeople = ORIGINAL_BASE_PEOPLE;
+                }
+                updateTransportHeader();
+                updateSummary();
+            });
+
+            arrivalDateInput.addEventListener('change', (event) => {
+                const newArrivalDate = new Date(event.target.value);
+                const currentDepartureDate = new Date(departureDateInput.value);
+                const dateErrorDiv = document.getElementById('date-error-message');
+
+                if (isNaN(newArrivalDate.getTime())) {
+                    event.target.value = toISODateString(parseDate(itineraryData[0].date));
+                    dateErrorDiv.classList.remove('hidden');
+                    return;
+                }
+
+                if (newArrivalDate.getTime() > currentDepartureDate.getTime()) {
+                    const originalDurationDays = itineraryData.length;
+                    const calculatedDepartureDate = addDays(newArrivalDate, originalDurationDays - 1);
+                    departureDateInput.value = toISODateString(calculatedDepartureDate);
+                    dateErrorDiv.classList.add('hidden');
+                } else {
+                    dateErrorDiv.classList.add('hidden');
+                }
+                updateTableAndSummaryBasedOnDates();
+            });
+
+            departureDateInput.addEventListener('change', (event) => {
+                const newDepartureDate = new Date(event.target.value);
+                const currentArrivalDate = new Date(arrivalDateInput.value);
+                const dateErrorDiv = document.getElementById('date-error-message');
+
+                if (isNaN(newDepartureDate.getTime())) {
+                    const originalDurationDays = itineraryData.length;
+                    const calculatedDepartureDate = addDays(currentArrivalDate, originalDurationDays - 1);
+                    event.target.value = toISODateString(calculatedDepartureDate);
+                    dateErrorDiv.classList.remove('hidden');
+                    return;
+                }
+
+                if (newDepartureDate.getTime() < currentArrivalDate.getTime()) {
+                    dateErrorDiv.classList.remove('hidden');
+                    event.target.value = toISODateString(currentArrivalDate);
+                } else {
+                    dateErrorDiv.classList.add('hidden');
+                }
+                updateTableAndSummaryBasedOnDates();
+            });
+
+            // Restriction dropdown logic
+            let selectedRestrictions = new Set();
+
+            toggleRestrictionsButton.addEventListener('click', () => {
+                restrictionsDropdown.classList.toggle('hidden');
+            });
+
+            restrictionOptionButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    const value = button.dataset.value;
+                    if (selectedRestrictions.has(value)) {
+                        selectedRestrictions.delete(value);
+                        button.classList.remove('selected');
+                    } else {
+                        selectedRestrictions.add(value);
+                        button.classList.add('selected');
+                    }
+                    updateRestrictionInputDisplay();
+                });
+            });
+
+            addRestrictionInputs.forEach(input => {
+                input.addEventListener('keypress', (event) => {
+                    if (event.key === 'Enter') {
+                        event.preventDefault(); // Prevent form submission
+                        const newRestriction = input.value.trim();
+                        if (newRestriction && !selectedRestrictions.has(newRestriction)) {
+                            selectedRestrictions.add(newRestriction);
+                            const ul = input.nextElementSibling; // Get the <ul> sibling
+                            const newButton = document.createElement('button');
+                            newButton.classList.add('restriction-option-button');
+                            newButton.classList.add('selected'); // Automatically select when added
+                            newButton.dataset.value = newRestriction;
+                            newButton.textContent = newRestriction;
+                            newButton.addEventListener('click', () => {
+                                if (selectedRestrictions.has(newRestriction)) {
+                                    selectedRestrictions.delete(newRestriction);
+                                    newButton.classList.remove('selected');
+                                } else {
+                                    selectedRestrictions.add(newRestriction);
+                                    newButton.classList.add('selected');
+                                }
+                                updateRestrictionInputDisplay();
+                            });
+                            const li = document.createElement('li');
+                            li.appendChild(newButton);
+                            ul.appendChild(li);
+                            input.value = ''; // Clear input
+                            updateRestrictionInputDisplay();
+                        }
+                    }
+                });
+            });
+
+            function updateRestrictionInputDisplay() {
+                restrictionDisplayInput.value = Array.from(selectedRestrictions).join(', ');
+            }
+        });
+
+        function updateTransportHeader() {
+            const header = document.getElementById('transport-cost-header');
+            header.textContent = `Prix trajets (${currentNumberOfPeople} pers.)`;
+        }
+
+        function updateTableAndSummaryBasedOnDates() {
+            const arrivalDateInput = document.getElementById('arrival-date');
+            const departureDateInput = document.getElementById('departure-date');
+            
+            const currentArrivalDate = new Date(arrivalDateInput.value);
+            const currentDepartureDate = new Date(departureDateInput.value);
+
+            const originalFirstDate = parseDate(itineraryData[0].date);
+            const timeDiff = currentArrivalDate.getTime() - originalFirstDate.getTime();
+            const dayDiff = Math.round(timeDiff / (1000 * 60 * 60 * 24));
+
+            processedItineraryData.forEach((item, index) => {
+                const originalItemDate = parseDate(itineraryData[index].date);
+                const newCalculatedDate = addDays(originalItemDate, dayDiff);
+                item.currentDisplayDate = newCalculatedDate;
+                item.date = formatDate(newCalculatedDate);
+            });
+
+            populateTable();
+            updateSummary();
+        }
+
+        function getMatchedSourceLink(itemName, sourceLinks) {
+            const normalizedItemName = itemName.toLowerCase().replace(/[^a-z0-9]/g, '');
+            for (const link of sourceLinks) {
+                const normalizedLink = link.toLowerCase();
+                if (normalizedLink.includes(normalizedItemName.split(' ')[0]) ||
+                    normalizedLink.includes(normalizedItemName.replace(/\s/g, '')) ||
+                    (normalizedItemName.split(' ').length > 1 && normalizedLink.includes(normalizedItemName.split(' ')[0] + normalizedItemName.split(' ')[1]))
+                ) {
+                    return link;
+                }
+                if (itemName.includes('Getty Center') && normalizedLink.includes('getty.edu')) return link;
+                if (itemName.includes('Last Bookstore') && normalizedLink.includes('lastbookstorela.com')) return link;
+                if (itemName.includes('Bradbury Building') && normalizedLink.includes('laconservancy.org')) return link;
+                if (itemName.includes('Universal Studios') && normalizedLink.includes('universalstudioshollywood.com')) return link;
+                if (itemName.includes('Aquarium of the Pacific') && normalizedLink.includes('aquariumofpacific.org')) return link;
+                if (itemName.includes('LA Zoo') && normalizedLink.includes('lazoo.org')) return link;
+                if (itemName.includes('Hollywood Sign') && normalizedLink.includes('getyourguide.com')) return link;
+                if (itemName.includes('SoFi Stadium') && normalizedLink.includes('sofistadium.com')) return link;
+                if (itemName.includes('TCL Chinese Theatre') && normalizedLink.includes('tclchinesetheatres.com')) return link;
+                if (itemName.includes('Madame Tussauds') && normalizedLink.includes('madametussauds.com')) return link;
+                if (itemName.includes('Petersen Automotive Museum') && normalizedLink.includes('petersen.org')) return link;
+                if (itemName.includes('Disneyland') && normalizedLink.includes('disneyland.disney.go.com')) return link;
+                if (itemName.includes('Knott\'s Berry Farm') && normalizedLink.includes('knotts.com')) return link;
+                if (itemName.includes('Anaheim GardenWalk') && normalizedLink.includes('anaheimgardenwalk.com')) return link;
+                if (itemName.includes('Joshua Tree NP') && normalizedLink.includes('nps.gov/jotr')) return link;
+                if (itemName.includes('Riverside Resort') && normalizedLink.includes('riversideresort.com')) return link;
+                if (itemName.includes('Aquarius Casino') && normalizedLink.includes('aquariuscasinoresort.com')) return link;
+                if (itemName.includes('Harrah\'s Laughlin') && normalizedLink.includes('caesars.com/harrahs-laughlin')) return link;
+                if (itemName.includes('Avi Resort') && normalizedLink.includes('avicasino.com')) return link;
+                if (itemName.includes('Bubba Gump') && normalizedLink.includes('bubbagumpshrimp.com')) return link;
+                if (itemName.includes('Panda Express') && normalizedLink.includes('pandaexpress.com')) return link;
+                if (itemName.includes('Grand Canyon') && normalizedLink.includes('nps.gov/grca')) return link;
+                if (itemName.includes('Maswik Lodge') && normalizedLink.includes('grandcanyonlodges.com/lodging/maswik-lodge')) return link;
+                if (itemName.includes('Bright Angel Lodge') && normalizedLink.includes('grandcanyonlodges.com/lodging/bright-angel-lodge')) return link;
+                if (itemName.includes('El Tovar Hotel') && normalizedLink.includes('grandcanyonlodges.com/lodging/el-tovar-hotel')) return link;
+                if (itemName.includes('The Grand Hotel') && normalizedLink.includes('thetrain.com/hotel')) return link;
+                if (itemName.includes('Antelope Canyon') && normalizedLink.includes('antelopecanyon.com')) return link;
+                if (itemName.includes('Horseshoe Bend') && normalizedLink.includes('nps.gov/glca/planyourvisit/horseshoe-bend')) return link;
+                if (itemName.includes('Holiday Inn Express Page') && normalizedLink.includes('ihg.com/holidayinnexpress')) return link;
+                if (itemName.includes('Hyatt Place Page') && normalizedLink.includes('hyatt.com/en-US/hotel/arizona/hyatt-place-page-lake-powell')) return link;
+                if (itemName.includes('Lake Powell Resort') && normalizedLink.includes('lakepowell.com/lodging/lake-powell-resort')) return link;
+                if (itemName.includes('Big John\'s Texas Barbecue') && normalizedLink.includes('bigjohnstexasbbq.com')) return link;
+                if (itemName.includes('Bonkers Restaurant') && normalizedLink.includes('bonkersrestaurant.com')) return link;
+                if (itemName.includes('BirdHouse') && normalizedLink.includes('birdhousepage.com')) return link;
+                if (itemName.includes('Dam Bar & Grille') && normalizedLink.includes('thedambargrille.com')) return link;
+                if (itemName.includes('Monument Valley') && normalizedLink.includes('navajonationparks.org/tribal-parks/monument-valley')) return link;
+                if (itemName.includes('Bryce Canyon') && normalizedLink.includes('nps.gov/brca')) return link;
+                if (itemName.includes('Best Western Plus Bryce Canyon Grand Hotel') && normalizedLink.includes('bestwestern.com/en_US/book/hotels-in-bryce-canyon-city-utah/best-western-plus-bryce-canyon-grand-hotel')) return link;
+                if (itemName.includes('Ruby\'s Inn') && normalizedLink.includes('rubysinn.com')) return link;
+                if (itemName.includes('Bryce Canyon Log Cabins') && normalizedLink.includes('brycecanyonlogcabins.com')) return link;
+                if (itemName.includes('Stone Canyon Inn') && normalizedLink.includes('stonecanyoninn.com')) return link;
+                if (itemName.includes('The View Restaurant') && normalizedLink.includes('monumentvalleyview.com')) return link;
+                if (itemName.includes('Pizza Place') && normalizedLink.includes('rubysinn.com/dining/pizza-place')) return link;
+                if (itemName.includes('Bryce Canyon Pines Restaurant') && normalizedLink.includes('brycecanyonmotel.com/restaurant')) return link;
+                if (itemName.includes('Ebenezer\'s Barn & Grill') && normalizedLink.includes('ebenezersbarnandgrill.com')) return link;
+                if (itemName.includes('Zion NP') && normalizedLink.includes('nps.gov/zion')) return link;
+                if (itemName.includes('Luxor Hotel') && normalizedLink.includes('luxor.mgmresorts.com')) return link;
+                if (itemName.includes('Paris Las Vegas') && normalizedLink.includes('caesars.com/paris-las-vegas')) return link;
+                if (itemName.includes('The Venetian Resort') && normalizedLink.includes('venetianlasvegas.com')) return link;
+                if (itemName.includes('Circus Circus') && normalizedLink.includes('circuscircus.mgmresorts.com')) return link;
+                if (itemName.includes('The Buffet at Bellagio') && normalizedLink.includes('bellagio.mgmresorts.com/en/restaurants/the-buffet')) return link;
+                if (itemName.includes('Bacchanal Buffet') && normalizedLink.includes('caesars.com/caesars-palace/restaurants/bacchanal-buffalac')) return link;
+                if (itemName.includes('Dick\'s Last Resort') && normalizedLink.includes('dickslastresort.com')) return link;
+                if (itemName.includes('Blackout Dining') && normalizedLink.includes('blackoutdininginthedark.com')) return link;
+                if (itemName.includes('Freehand Los Angeles') && normalizedLink.includes('freehandhotels.com/los-angeles')) return link;
+                if (itemName.includes('Loews Santa Monica') && normalizedLink.includes('loewshotels.com/santa-monica-beach-hotel')) return link;
+                if (itemName.includes('The Standard, Downtown LA') && normalizedLink.includes('thestandardhotels.com/los-angles/properties/downtown-la')) return link;
+                if (itemName.includes('Hotel June') && normalizedLink.includes('hoteljunela.com')) return link;
+                if (itemName.includes('In-N-Out Burger') && normalizedLink.includes('in-n-out.com')) return link;
+                if (itemName.includes('Grand Central Market') && normalizedLink.includes('grandcentralmarket.com')) return link;
+                if (itemName.includes('The Griddle Cafe') && normalizedLink.includes('thegriddlecafe.com')) return link;
+                if (itemName.includes('Perch') && normalizedLink.includes('perchla.com')) return link;
+            }
+            return null;
+        }
+
+
+        function preprocessItineraryData() {
+            processedItineraryData = itineraryData.map(day => {
+                const mainActivity = {
+                    activityId: globalActivityId++,
+                    name: day.activities_main_name,
+                    cost: day.activities_main_cost,
+                    type: 'main_activity',
+                    dayId: day.id,
+                    matchedSourceLink: getMatchedSourceLink(day.activities_main_name, day.sourceLinks)
+                };
+                activityMap.set(mainActivity.activityId, mainActivity);
+
+                const extraActivities = day.extras.map(extra => {
+                    const activity = {
+                        activityId: globalActivityId++,
+                        name: extra.name,
+                        cost: extra.cost,
+                        type: 'extra_activity',
+                        dayId: day.id,
+                        matchedSourceLink: getMatchedSourceLink(extra.name, day.sourceLinks)
+                    };
+                    activityMap.set(activity.activityId, activity);
+                    return activity;
+                });
+
+                const accommodationOptions = day.accommodationOptions.map(option => {
+                    const activity = {
+                        activityId: globalActivityId++,
+                        name: option.name,
+                        cost: option.cost,
+                        type: 'accommodation',
+                        dayId: day.id,
+                        matchedSourceLink: option.source || getMatchedSourceLink(option.name, day.sourceLinks)
+                    };
+                    activityMap.set(activity.activityId, activity);
+                    return activity;
+                });
+
+                const mealOptions = day.mealOptions.map(option => {
+                    const activity = {
+                        activityId: globalActivityId++,
+                        name: option.name,
+                        cost: option.cost,
+                        type: 'meal',
+                        dayId: day.id,
+                        matchedSourceLink: option.source || getMatchedSourceLink(option.name, day.sourceLinks)
+                    };
+                    activityMap.set(activity.activityId, activity);
+                    return activity;
+                });
+
+                return {
+                    ...day,
+                    allActivities: [mainActivity, ...extraActivities],
+                    allAccommodationOptions: accommodationOptions,
+                    allMealOptions: mealOptions,
+                    currentDisplayDate: null
+                };
+            });
+        }
+
+        function populateTable() {
+            const tableBody = document.getElementById('table-body');
+            tableBody.innerHTML = '';
+
+            const currentArrivalDate = new Date(document.getElementById('arrival-date').value);
+            const currentDepartureDate = new Date(document.getElementById('departure-date').value);
+
+            processedItineraryData.forEach(item => {
+                if (item.currentDisplayDate >= currentArrivalDate && item.currentDisplayDate <= currentDepartureDate) {
+                    const isFirstDisplayedDay = item.currentDisplayDate.getTime() === currentArrivalDate.getTime();
+                    const isLastDisplayedDay = item.currentDisplayDate.getTime() === currentDepartureDate.getTime();
+
+                    const locationText = item.location;
+                    let locationDisplay = locationText;
+                    if (isFirstDisplayedDay) {
+                        locationDisplay += ' <span class="text-gray-500 text-xs">(Arrivée)</span>';
+                    } else if (isLastDisplayedDay) {
+                        locationDisplay += ' <span class="text-gray-500 text-xs">(Départ)</span>';
+                    }
+
+                    const row = `
+                        <tr class="hover:bg-gray-50">
+                            <td class="p-4 text-sm">${item.id}</td>
+                            <td class="p-4 text-lg">${item.priority}</td>
+                            <td class="p-4 text-sm">${item.geographicZone}</td>
+                            <td class="p-4">
+                                ${item.sourceLinks.length > 0 ? `
+                                    <a href="${item.sourceLinks[0]}" target="_blank" class="font-bold text-gray-800 hover:underline cursor-pointer">
+                                        ${locationDisplay}
+                                    </a>
+                                ` : `
+                                    <p class="font-bold text-gray-800">${locationDisplay}</p>
+                                `}
+                            </td>
+                            <td class="p-4 text-sm text-gray-600">${item.date}</td>
+                            <td class="p-4 text-sm">${item.distance} km</td>
+                            <td class="p-4 text-sm">${item.cost.transport} $</td>
+                            <td class="p-4 text-sm">
+                                <div class="item-list-container">
+                                    ${item.allAccommodationOptions.map(option => `
+                                        <div class="flex items-center">
+                                            <button class="item-button ${selectedActivityIds.has(option.activityId) ? 'selected' : ''}" data-activity-id="${option.activityId}" data-day-id="${item.id}" data-type="accommodation">
+                                                ${option.name} <span class="text-xs ml-1">(${option.cost > 0 ? option.cost + ' $/nuit' : 'Gratuit'})</span>
+                                            </button>
+                                            ${option.matchedSourceLink ? `<a href="${option.matchedSourceLink}" target="_blank" class="item-link" title="${option.matchedSourceLink}">Lien</a>` : ''}
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </td>
+                            <td class="p-4 text-sm">
+                                <div class="item-list-container">
+                                    ${item.allMealOptions.map(option => `
+                                        <div class="flex items-center">
+                                            <button class="item-button ${selectedActivityIds.has(option.activityId) ? 'selected' : ''}" data-activity-id="${option.activityId}" data-day-id="${item.id}" data-type="meal">
+                                                ${option.name} <span class="text-xs ml-1">(${option.cost > 0 ? option.cost + ' $' : 'Gratuit'})</span>
+                                            </button>
+                                            ${option.matchedSourceLink ? `<a href="${option.matchedSourceLink}" target="_blank" class="item-link" title="${option.matchedSourceLink}">Lien</a>` : ''}
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </td>
+                            <td class="p-4 text-sm">
+                                <div class="item-list-container">
+                                    ${item.allActivities.map(activity => `
+                                        <div class="flex items-center">
+                                            <button class="item-button ${selectedActivityIds.has(activity.activityId) ? 'selected' : ''}" data-activity-id="${activity.activityId}" data-day-id="${item.id}" data-type="${activity.type}">
+                                                ${activity.name} <span class="text-xs ml-1">(${activity.cost > 0 ? activity.cost + '$' : 'Gratuit'})</span>
+                                            </button>
+                                            ${activity.matchedSourceLink ? `<a href="${activity.matchedSourceLink}" target="_blank" class="item-link" title="${activity.matchedSourceLink}">Lien</a>` : ''}
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </td>
+                            <td class="p-4 text-sm text-gray-700">${item.highlights}</td>
+                            <td class="p-4 text-sm text-red-600">
+                                 <div class="tooltip">⚠️
+                                    <span class="tooltiptext">${item.vigilance}</span>
+                                </div>
+                            </td>
+                            <td class="p-4 text-sm text-gray-700">${item.gpsPosition}</td>
+                        </tr>
+                    `;
+                    tableBody.innerHTML += row;
+                }
+            });
+
+            const itemButtons = document.querySelectorAll('.item-button');
+            itemButtons.forEach(button => {
+                button.addEventListener('click', handleItemSelection);
+            });
+        }
+
+        function handleItemSelection(event) {
+            const button = event.target.closest('.item-button');
+            if (!button) return;
+
+            const activityId = parseInt(button.dataset.activityId);
+            const itemType = button.dataset.type;
+            const dayId = parseInt(button.dataset.dayId);
+
+            if (itemType === 'accommodation' || itemType === 'meal') {
+                processedItineraryData.find(day => day.id === dayId)
+                    [`all${itemType === 'accommodation' ? 'Accommodation' : 'Meal'}Options`].forEach(option => {
+                        if (selectedActivityIds.has(option.activityId) && option.activityId !== activityId) {
+                            selectedActivityIds.delete(option.activityId);
+                            const prevSelectedButton = document.querySelector(`[data-activity-id="${option.activityId}"]`);
+                            if (prevSelectedButton) prevSelectedButton.classList.remove('selected');
+                        }
+                    });
+            }
+            
+            if (selectedActivityIds.has(activityId)) {
+                selectedActivityIds.delete(activityId);
+                button.classList.remove('selected');
+            } else {
+                selectedActivityIds.add(activityId);
+                button.classList.add('selected');
+            }
+            updateSummary();
+        }
+
+        function updateSummary() {
+            let totalCost = 0;
+            let totalKms = 0;
+            const selectedDayIds = new Set();
+            const selectedItemsByDay = new Map();
+
+            const currentArrivalDate = new Date(document.getElementById('arrival-date').value);
+            const currentDepartureDate = new Date(document.getElementById('departure-date').value);
+
+            selectedActivityIds.forEach(activityId => {
+                const item = activityMap.get(activityId);
+                if (item && item.currentDisplayDate >= currentArrivalDate && item.currentDisplayDate <= currentDepartureDate) {
+                    selectedDayIds.add(item.dayId);
+                    totalCost += item.cost > 0 ? (item.cost / ORIGINAL_BASE_PEOPLE) * currentNumberOfPeople : 0;
+
+                    if (!selectedItemsByDay.has(item.dayId)) {
+                        selectedItemsByDay.set(item.dayId, []);
+                    }
+                    selectedItemsByDay.get(item.dayId).push(item);
+                }
+            });
+
+            processedItineraryData.forEach(day => {
+                if (day.currentDisplayDate >= currentArrivalDate && day.currentDisplayDate <= currentDepartureDate && selectedDayIds.has(day.id)) {
+                    totalKms += day.distance;
+                    totalCost += (day.cost.transport / ORIGINAL_BASE_PEOPLE) * currentNumberOfPeople;
+                }
+            });
+
+            document.getElementById('total-cost').textContent = `${totalCost.toLocaleString('fr-FR')} $`;
+            document.getElementById('total-kms').textContent = `${totalKms.toLocaleString('fr-FR')} km`;
+            document.getElementById('total-days').textContent = selectedDayIds.size;
+
+            const list = document.getElementById('selected-activities-list');
+            list.innerHTML = '';
+
+            if (selectedActivityIds.size === 0 || selectedDayIds.size === 0) {
+                list.innerHTML = '<li class="text-gray-500">Sélectionnez des éléments dans le tableau pour commencer.</li>';
+            } else {
+                const sortedDayIds = Array.from(selectedDayIds).sort((idA, idB) => {
+                    const dayA = processedItineraryData.find(d => d.id === idA);
+                    const dayB = processedItineraryData.find(d => d.id === idB);
+                    return dayA.currentDisplayDate.getTime() - dayB.currentDisplayDate.getTime();
+                });
+
+                sortedDayIds.forEach(dayId => {
+                    const dayInfo = processedItineraryData.find(d => d.id === dayId);
+                    const itemsForThisDay = selectedItemsByDay.get(dayId).sort((a, b) => a.name.localeCompare(b.name));
+
+                    const dayHeader = document.createElement('li');
+                    dayHeader.className = 'font-bold text-gray-800 mt-4 mb-2 border-b border-gray-200 pb-1';
+                    dayHeader.textContent = `${dayInfo.date} - ${dayInfo.location.split(',')[0]}`;
+                    list.appendChild(dayHeader);
+
+                    itemsForThisDay.forEach(item => {
+                        const li = document.createElement('li');
+                        li.className = 'flex justify-between items-center bg-gray-50 p-2 rounded text-sm';
+                        li.innerHTML = `
+                            <span>${item.name} (${item.type === 'accommodation' ? 'Hébergement' : item.type === 'meal' ? 'Repas' : 'Activité'})</span>
+                            <span class="font-semibold text-[#A88B79]">${item.cost > 0 ? ((item.cost / ORIGINAL_BASE_PEOPLE) * currentNumberOfPeople).toLocaleString('fr-FR') + '$' : 'Gratuit'}</span>
+                        `;
+                        list.appendChild(li);
+                    });
+                });
+            }
+            updateChart();
+        }
+
+        function updateChart() {
+            const chartPlaceholder = document.getElementById('chart-placeholder');
+            const ctx = document.getElementById('budgetChart').getContext('2d');
+
+            const currentArrivalDate = new Date(document.getElementById('arrival-date').value);
+            const currentDepartureDate = new Date(document.getElementById('departure-date').value);
+
+            const filteredSelectedActivityIds = new Set();
+            selectedActivityIds.forEach(activityId => {
+                const item = activityMap.get(activityId);
+                if (item && item.currentDisplayDate >= currentArrivalDate && item.currentDisplayDate <= currentDepartureDate) {
+                    filteredSelectedActivityIds.add(activityId);
+                }
+            });
+
+            if (filteredSelectedActivityIds.size === 0) {
+                if (budgetChart) {
+                    budgetChart.destroy();
+                    budgetChart = null;
+                }
+                chartPlaceholder.style.display = 'block';
+                return;
+            }
+            
+            chartPlaceholder.style.display = 'none';
+
+            const chartLabels = [];
+            const chartTransportData = [];
+            const chartHebergementData = [];
+            const chartRepasData = [];
+            const chartActivitesData = [];
+
+            const dailyCostsByType = new Map();
+            const selectedDayIdsForChart = new Set();
+
+            filteredSelectedActivityIds.forEach(activityId => {
+                const item = activityMap.get(activityId);
+                if (item) {
+                    selectedDayIdsForChart.add(item.dayId);
+                    if (!dailyCostsByType.has(item.dayId)) {
+                        dailyCostsByType.set(item.dayId, new Map());
+                    }
+                    const currentCostForType = dailyCostsByType.get(item.dayId).get(item.type) || 0;
+                    dailyCostsByType.get(item.dayId).set(item.type, currentCostForType + item.cost);
+                }
+            });
+
+            processedItineraryData.forEach(day => {
+                if (day.currentDisplayDate >= currentArrivalDate && day.currentDisplayDate <= currentDepartureDate && selectedDayIdsForChart.has(day.id)) {
+                    chartLabels.push(`${day.date.substring(0,5)} - ${day.location.split(',')[0]}`);
+                    chartTransportData.push((day.cost.transport / ORIGINAL_BASE_PEOPLE) * currentNumberOfPeople);
+                    
+                    const dayCosts = dailyCostsByType.get(day.id) || new Map();
+                    chartHebergementData.push((dayCosts.get('accommodation') || 0) / ORIGINAL_BASE_PEOPLE * currentNumberOfPeople);
+                    chartRepasData.push((dayCosts.get('meal') || 0) / ORIGINAL_BASE_PEOPLE * currentNumberOfPeople);
+                    chartActivitesData.push(((dayCosts.get('main_activity') || 0) + (dayCosts.get('extra_activity') || 0)) / ORIGINAL_BASE_PEOPLE * currentNumberOfPeople);
+                }
+            });
+
+            if (budgetChart) {
+                budgetChart.data.labels = chartLabels;
+                budgetChart.data.datasets[0].data = chartTransportData;
+                budgetChart.data.datasets[1].data = chartHebergementData;
+                budgetChart.data.datasets[2].data = chartRepasData;
+                budgetChart.data.datasets[3].data = chartActivitesData;
+                budgetChart.update();
+            } else {
+                budgetChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: chartLabels,
+                        datasets: [
+                            { label: 'Transport', data: chartTransportData, backgroundColor: '#D4BFAA', },
+                            { label: 'Hébergement', data: chartHebergementData, backgroundColor: '#A88B79', },
+                            { label: 'Repas', data: chartRepasData, backgroundColor: '#816B5A', },
+                            { label: 'Activités', data: chartActivitesData, backgroundColor: '#5C4D42', }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Répartition des Coûts Journaliers Estimés',
+                                font: { size: 18, weight: 'bold' },
+                                color: '#4A4A4A',
+                                padding: { top: 10, bottom: 20 }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        let label = context.dataset.label || '';
+                                        if (label) {
+                                            label += ': ';
+                                        }
+                                        if (context.parsed.y !== null) {
+                                            label += new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'USD' }).format(context.parsed.y);
+                                        }
+                                        return label;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                stacked: true,
+                                grid: { display: false },
+                                ticks: {
+                                    color: '#4A4A4A',
+                                    font: { size: 10 }
+                                }
+                            },
+                            y: {
+                                stacked: true,
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Coût Estimé ($)',
+                                    color: '#4A4A4A',
+                                    font: { weight: 'bold' }
+                                },
+                                ticks: { color: '#4A4A4A' }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+    </script>
+
+</body>
+</html>
